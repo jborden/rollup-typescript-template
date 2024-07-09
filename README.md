@@ -28,3 +28,6 @@ NES Test Roms
 https://github.com/christopherpow/nes-test-roms/tree/master/other
 
 https://www.nesdev.org/wiki/Emulator_tests - lots of dead links
+
+Opcodes
+https://www.masswerk.at/6502/6502_instruction_set.html#STA

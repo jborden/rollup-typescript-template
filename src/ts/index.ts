@@ -51,7 +51,7 @@ async function loadAndStartROM(file: File) {
     memory.loadROM(rom);
     cpu.reset();
     // turn this back on to do full emulation
-    //startEmulator();
+    startEmulator();
   } catch (error) {
     console.error('Failed to load ROM:', error);
   }

@@ -31,7 +31,8 @@ export class CPU {
     this.S = 0xFF;
     this.P = 0;
     // Set PC to the reset vector
-    this.PC = this.memory.read(0xFFFC) | (this.memory.read(0xFFFD) << 8);
+    //this.PC = this.memory.read(0xFFFC) | (this.memory.read(0xFFFD) << 8);
+    this.PC = 0xC000;
   }
 
   step(): void {
@@ -50,8 +51,8 @@ export class CPU {
         this.memory.write(address, this.A);
         break;
 	//Add more opcodes here...
-      default:
-        console.log(`Unknown opcode: ${opcode.toString(16)}`);
+      // default:
+      //   console.log(`Unknown opcode: ${opcode.toString(16)}`);
     }
   }
 
