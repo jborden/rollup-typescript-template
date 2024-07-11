@@ -17,9 +17,15 @@
         write(address, value) {
             this.data[address] = value;
         }
-        loadROM(rom) {
-            // Load PRG-ROM into memory
-            this.data.set(rom.prgROM, 0x8000);
+        loadROM(rom, startAddress = 0x8000, CPU = true) {
+            if (CPU) {
+                // Load PRG-ROM into memory
+                this.data.set(rom.prgROM, startAddress);
+            }
+            // load character rom into memory
+            else {
+                this.data.set(rom.chrROM, startAddress);
+            }
         }
         // loadROM(rom: Uint8Array, startAddress: number = 0x8000): void {
         //   this.data.set(rom, startAddress);
@@ -183,7 +189,7 @@
     CPU.N = 7; // Negative
 
     class PPU {
-        constructor(memory, canvas) {
+        constructor(rom, canvas, mode = 'game') {
             this.palette = [
                 0x7C7C7C, 0x0000FC, 0x0000BC, 0x4428BC, 0x940084, 0xA80020, 0xA81000, 0x881400,
                 0x503000, 0x007800, 0x006800, 0x005800, 0x004058, 0x000000, 0x000000, 0x000000,
@@ -194,10 +200,30 @@
                 0xFCFCFC, 0xA4E4FC, 0xB8B8F8, 0xD8B8F8, 0xF8B8F8, 0xF8A4C0, 0xF0D0B0, 0xFCE0A8,
                 0xF8D878, 0xD8F878, 0xB8F8B8, 0xB8F8D8, 0x00FCFC, 0xF8D8F8, 0x000000, 0x000000
             ];
-            this.memory = memory;
             this.canvas = canvas;
+            this.memory = new Memory(0x10000);
+            this.memory.loadROM(rom, 0x0000, false);
             this.context = this.initContext();
-            this.imageData = this.context.createImageData(256, 240);
+            if (mode === 'chrrom') {
+                this.canvas.width = 128; // 16 tiles * 8 pixels
+                this.canvas.height = 128; // 16 tiles * 8 pixels
+                this.imageData = this.context.createImageData(128, 128);
+            }
+            else {
+                this.imageData = this.context.createImageData(256, 240);
+            }
+        }
+        setMode(mode) {
+            if (mode === 'chrrom') {
+                this.canvas.width = 128;
+                this.canvas.height = 128;
+                this.imageData = this.context.createImageData(128, 128);
+            }
+            else {
+                this.canvas.width = 256;
+                this.canvas.height = 240;
+                this.imageData = this.context.createImageData(256, 240);
+            }
         }
         initContext() {
             const context = this.canvas.getContext('2d');
@@ -261,6 +287,27 @@
                 }
             }
         }
+        renderCHRROM() {
+            const tileSize = 8;
+            const tilesPerRow = 16;
+            const numTiles = 256; // 256 tiles in one pattern table
+            for (let i = 0; i < numTiles; i++) {
+                const tileAddress = i * 16;
+                const x = (i % tilesPerRow) * tileSize;
+                const y = Math.floor(i / tilesPerRow) * tileSize;
+                for (let tileY = 0; tileY < 8; tileY++) {
+                    const low = this.memory.read(tileAddress + tileY);
+                    const high = this.memory.read(tileAddress + tileY + 8);
+                    for (let tileX = 0; tileX < 8; tileX++) {
+                        const color = ((high >> (7 - tileX)) & 1) << 1 | ((low >> (7 - tileX)) & 1);
+                        // Use grayscale for simplicity
+                        const grayScale = color * 85; // 0, 85, 170, or 255
+                        this.setPixel(x + tileX, y + tileY, (grayScale << 16) | (grayScale << 8) | grayScale);
+                    }
+                }
+            }
+            this.context.putImageData(this.imageData, 0, 0);
+        }
         setPixel(x, y, color) {
             const index = (y * 256 + x) * 4;
             this.imageData.data[index] = (color >> 16) & 0xFF; // Red
@@ -305,19 +352,54 @@
         });
     }
 
-    const foo = 'foo';
     const memory = new Memory(0x10000);
-    const canvas = document.getElementById('nes-canvas');
     const cpu = new CPU(memory);
-    const ppu = new PPU(memory, canvas);
+    let ppu;
+    let chromPPU;
+    let lastFrameTime = 0;
+    const FPS = 60;
+    const FRAME_DURATION = 1000 / FPS;
+    let isRunning = false;
+    let animationFrameId = null;
+    function runEmulator(timestamp) {
+        if (!isRunning)
+            return;
+        const deltaTime = timestamp - lastFrameTime;
+        if (deltaTime >= FRAME_DURATION) {
+            lastFrameTime = timestamp;
+            // Execute a fixed number of CPU instructions per frame
+            for (let i = 0; i < 29781; i++) {
+                cpu.step();
+            }
+            ppu.render();
+        }
+        animationFrameId = requestAnimationFrame(runEmulator);
+    }
+    function stopEmulator() {
+        isRunning = false;
+        if (animationFrameId !== null) {
+            cancelAnimationFrame(animationFrameId);
+            animationFrameId = null;
+        }
+    }
     function startEmulator() {
+        if (!isRunning) {
+            isRunning = true;
+            animationFrameId = requestAnimationFrame(runEmulator);
+        }
     }
     async function loadAndStartROM(file) {
         try {
             const rom = await loadROM(file);
             memory.loadROM(rom);
+            const canvas = document.getElementById('nes-canvas');
+            ppu = new PPU(rom, canvas);
             cpu.reset();
             // turn this back on to do full emulation
+            // render chrROM
+            const chrRomCanvas = document.getElementById('chrRomCanvas');
+            chromPPU = new PPU(rom, chrRomCanvas, 'chrrom');
+            chromPPU.renderCHRROM();
             startEmulator();
         }
         catch (error) {
@@ -335,6 +417,7 @@
             }
         });
         stopButton.addEventListener('click', () => {
+            stopEmulator();
         });
         reloadButton.addEventListener('click', () => {
             if (romInputElement.files && romInputElement.files.length > 0) {
@@ -350,11 +433,11 @@
     }
     window.memory = memory;
     window.cpu = cpu;
+    window.ppu = ppu;
+    window.chromPPU = chromPPU;
 
     exports.cpu = cpu;
-    exports.foo = foo;
     exports.memory = memory;
-    exports.ppu = ppu;
 
     return exports;
 

@@ -16,11 +16,30 @@ export class PPU {
     0xF8D878, 0xD8F878, 0xB8F8B8, 0xB8F8D8, 0x00FCFC, 0xF8D8F8, 0x000000, 0x000000
   ];
 
-  constructor(memory: Memory, canvas: HTMLCanvasElement) {
-    this.memory = memory;
+  constructor(rom: { prgROM: Uint8Array, chrROM: Uint8Array }, canvas: HTMLCanvasElement, mode: 'game' | 'chrrom' = 'game') {
     this.canvas = canvas;
+    this.memory = new Memory(0x10000);
+    this.memory.loadROM(rom, 0x0000, false);
     this.context = this.initContext();
-    this.imageData = this.context.createImageData(256, 240);
+    if (mode === 'chrrom') {
+      this.canvas.width = 128;  // 16 tiles * 8 pixels
+      this.canvas.height = 128; // 16 tiles * 8 pixels
+      this.imageData = this.context.createImageData(128, 128);
+    } else {
+      this.imageData = this.context.createImageData(256, 240);
+    }
+  }
+
+  setMode(mode: 'game' | 'chrrom'): void {
+    if (mode === 'chrrom') {
+      this.canvas.width = 128;
+      this.canvas.height = 128;
+      this.imageData = this.context.createImageData(128, 128);
+    } else {
+      this.canvas.width = 256;
+      this.canvas.height = 240;
+      this.imageData = this.context.createImageData(256, 240);
+    }
   }
 
   private initContext() {
@@ -99,6 +118,31 @@ export class PPU {
     }
   }
 
+  renderCHRROM(): void {
+    const tileSize = 8;
+    const tilesPerRow = 16;
+    const numTiles = 256; // 256 tiles in one pattern table
+
+    for (let i = 0; i < numTiles; i++) {
+      const tileAddress = i * 16;
+      const x = (i % tilesPerRow) * tileSize;
+      const y = Math.floor(i / tilesPerRow) * tileSize;
+      
+      for (let tileY = 0; tileY < 8; tileY++) {
+	const low = this.memory.read(tileAddress + tileY);
+	const high = this.memory.read(tileAddress + tileY + 8);
+	
+	for (let tileX = 0; tileX < 8; tileX++) {
+	  const color = ((high >> (7 - tileX)) & 1) << 1 | ((low >> (7 - tileX)) & 1);
+	  // Use grayscale for simplicity
+	  const grayScale = color * 85; // 0, 85, 170, or 255
+	  this.setPixel(x + tileX, y + tileY, (grayScale << 16) | (grayScale << 8) | grayScale);
+	}
+      }
+    }
+    
+    this.context.putImageData(this.imageData, 0, 0);
+  }
   private setPixel(x: number, y: number, color: number): void {
     const index = (y * 256 + x) * 4;
     this.imageData.data[index] = (color >> 16) & 0xFF;     // Red

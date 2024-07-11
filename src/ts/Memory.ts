@@ -18,9 +18,15 @@ export class Memory {
     this.data[address] = value;
   }
 
-  loadROM(rom: { prgROM: Uint8Array, chrROM: Uint8Array }): void {
-    // Load PRG-ROM into memory
-    this.data.set(rom.prgROM, 0x8000);
+  loadROM(rom: { prgROM: Uint8Array, chrROM: Uint8Array }, startAddress: number =  0x8000, CPU: boolean = true): void {
+    if (CPU) {
+      // Load PRG-ROM into memory
+      this.data.set(rom.prgROM, startAddress);
+    }
+    // load character rom into memory
+    else {
+      this.data.set(rom.chrROM, startAddress);
+    }
   }
 
   // loadROM(rom: Uint8Array, startAddress: number = 0x8000): void {

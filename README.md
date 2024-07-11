@@ -38,5 +38,5 @@ https://nesplorer.vercel.app/
 # Notes
 Read the first instruction in nestest.nes
 ```
-memory.readHex(0x80c0)
+memory.readHex(0x8000)
 ```
