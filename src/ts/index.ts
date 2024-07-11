@@ -41,7 +41,7 @@ function stopEmulator() {
 function startEmulator() {
   if (!isRunning) {
     isRunning = true;
-    animationFrameId = requestAnimationFrame(runEmulator);
+    //animationFrameId = requestAnimationFrame(runEmulator);
   }
 }
 

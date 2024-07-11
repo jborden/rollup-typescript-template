@@ -18,7 +18,18 @@ export class Memory {
     this.data[address] = value;
   }
 
-  loadROM(rom: Uint8Array, startAddress: number = 0x8000): void {
-    this.data.set(rom, startAddress);
+  loadROM(rom: { prgROM: Uint8Array, chrROM: Uint8Array }): void {
+    // Load PRG-ROM into memory
+    this.data.set(rom.prgROM, 0x8000);
   }
+
+  // loadROM(rom: Uint8Array, startAddress: number = 0x8000): void {
+  //   this.data.set(rom, startAddress);
+  // }
+
+  // Add method to read 16-bit little-endian address
+  read16(address: number): number {
+    return this.read(address) | (this.read(address + 1) << 8);
+  }
+  
 }

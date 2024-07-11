@@ -28,6 +28,15 @@ NES Test Roms
 https://github.com/christopherpow/nes-test-roms/tree/master/other
 
 https://www.nesdev.org/wiki/Emulator_tests - lots of dead links
-
+https://www.qmtpro.com/~nes/misc/nestest.txt - nestest.txt
 Opcodes
 https://www.masswerk.at/6502/6502_instruction_set.html#STA
+
+ROM explorer
+https://nesplorer.vercel.app/
+
+# Notes
+Read the first instruction in nestest.nes
+```
+memory.readHex(0x80c0)
+```

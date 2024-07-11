@@ -1,6 +1,37 @@
 import { Memory } from "./Memory";
+ interface Instruction {
+	opcode: number;
+	operands: number[];
+	addressingMode: AddressingMode;
+	bytes: number;
+  }
+
+  enum AddressingMode {
+	Implied,
+	Accumulator,
+	Immediate,
+	ZeroPage,
+	ZeroPageX,
+	ZeroPageY,
+	Relative,
+	Absolute,
+	AbsoluteX,
+	AbsoluteY,
+	Indirect,
+	IndexedIndirect,
+	IndirectIndexed
+  }
+
+  const INSTRUCTION_SET: { [opcode: number]: { bytes: number, addressingMode: AddressingMode } } = {
+    0xA5: { bytes: 2, addressingMode: AddressingMode.ZeroPage },
+    0xC9: { bytes: 2, addressingMode: AddressingMode.Immediate },
+    0xF6: { bytes: 2, addressingMode: AddressingMode.ZeroPageX },
+    // ... other opcodes ...
+  };
+
 
 export class CPU {
+  private memory: Memory;
   // Registers
   private A: number = 0;   // 8-bit accumulator
   private X: number = 0;   // 8-bit index register
@@ -18,8 +49,8 @@ export class CPU {
   private static V = 6; // Overflow
   private static N = 7; // Negative
 
-  private memory: Memory;
-
+ 
+  
   constructor(memory: Memory) {
     this.memory = memory;
   }
@@ -32,33 +63,75 @@ export class CPU {
     this.P = 0;
     // Set PC to the reset vector
     //this.PC = this.memory.read(0xFFFC) | (this.memory.read(0xFFFD) << 8);
-    this.PC = 0xC000;
+    // this is for nestest.nes
+    // most NES programs should start at 0x8000!
+    this.PC = 0x80C0;
   }
-
+  
   step(): void {
-    const opcode = this.memory.read(this.PC++);
-    this.executeInstruction(opcode);
+    const instruction = this.fetchInstruction();
+    this.executeInstruction(instruction);
   }
 
-  private executeInstruction(opcode: number): void {
-    switch (opcode) {
-      case 0xA9: // LDA Immediate
-        this.A = this.memory.read(this.PC++);
+  private fetchInstruction(): Instruction {
+    const opcode = this.memory.read(this.PC);
+    const info = INSTRUCTION_SET[opcode];
+    
+    if (!info) {
+      throw new Error(`Unknown opcode: ${opcode.toString(16)} at PC: ${this.PC.toString(16)}`);
+    }
+    
+    const operands: number[] = [];
+    for (let i = 0; i < info.bytes - 1; i++) {
+      operands.push(this.memory.read(this.PC + 1 + i));
+    }
+    
+    return {
+      opcode,
+      operands,
+      addressingMode: info.addressingMode,
+      bytes: info.bytes
+    };
+  }
+  
+  private executeInstruction(instruction: Instruction): void {
+    // Implement each opcode here
+    switch (instruction.opcode) {
+      case 0xA5:  // LDA Zero Page
+        const zpAddress = instruction.operands[0];
+        this.A = this.memory.read(zpAddress);
         this.updateZeroAndNegativeFlags(this.A);
         break;
-      case 0x8D: // STA Absolute
-        const address = this.memory.read(this.PC++) | (this.memory.read(this.PC++) << 8);
-        this.memory.write(address, this.A);
+      case 0xC9:  // CMP Immediate
+        const value = instruction.operands[0];
+        //this.compare(this.A, value);
         break;
-	//Add more opcodes here...
-      // default:
-      //   console.log(`Unknown opcode: ${opcode.toString(16)}`);
+      case 0xF6:  // INC Zero Page,X
+        const address = (instruction.operands[0] + this.X) & 0xFF;
+        let result = (this.memory.read(address) + 1) & 0xFF;
+        this.memory.write(address, result);
+        this.updateZeroAndNegativeFlags(result);
+        break;
+      // ... other opcodes ...
     }
-  }
 
+    this.PC += instruction.bytes;
+  }
+  // private updateZeroAndNegativeFlags(value: number): void {
+  //   this.setFlag(CPU.Z, value === 0);
+  //   this.setFlag(CPU.N, (value & 0x80) !== 0);
+  // }
   private updateZeroAndNegativeFlags(value: number): void {
-    this.setFlag(CPU.Z, value === 0);
-    this.setFlag(CPU.N, (value & 0x80) !== 0);
+    if (value === 0) {
+      this.P |= 0x02; // Set Zero flag
+    } else {
+      this.P &= ~0x02; // Clear Zero flag
+    }
+    if (value & 0x80) {
+      this.P |= 0x80; // Set Negative flag
+    } else {
+      this.P &= ~0x80; // Clear Negative flag
+    }
   }
 
   private setFlag(flag: number, value: boolean): void {
@@ -105,3 +178,5 @@ export class CPU {
     return str;
   }
 }
+
+

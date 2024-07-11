@@ -17,11 +17,41 @@
         write(address, value) {
             this.data[address] = value;
         }
-        loadROM(rom, startAddress = 0x8000) {
-            this.data.set(rom, startAddress);
+        loadROM(rom) {
+            // Load PRG-ROM into memory
+            this.data.set(rom.prgROM, 0x8000);
+        }
+        // loadROM(rom: Uint8Array, startAddress: number = 0x8000): void {
+        //   this.data.set(rom, startAddress);
+        // }
+        // Add method to read 16-bit little-endian address
+        read16(address) {
+            return this.read(address) | (this.read(address + 1) << 8);
         }
     }
 
+    var AddressingMode;
+    (function (AddressingMode) {
+        AddressingMode[AddressingMode["Implied"] = 0] = "Implied";
+        AddressingMode[AddressingMode["Accumulator"] = 1] = "Accumulator";
+        AddressingMode[AddressingMode["Immediate"] = 2] = "Immediate";
+        AddressingMode[AddressingMode["ZeroPage"] = 3] = "ZeroPage";
+        AddressingMode[AddressingMode["ZeroPageX"] = 4] = "ZeroPageX";
+        AddressingMode[AddressingMode["ZeroPageY"] = 5] = "ZeroPageY";
+        AddressingMode[AddressingMode["Relative"] = 6] = "Relative";
+        AddressingMode[AddressingMode["Absolute"] = 7] = "Absolute";
+        AddressingMode[AddressingMode["AbsoluteX"] = 8] = "AbsoluteX";
+        AddressingMode[AddressingMode["AbsoluteY"] = 9] = "AbsoluteY";
+        AddressingMode[AddressingMode["Indirect"] = 10] = "Indirect";
+        AddressingMode[AddressingMode["IndexedIndirect"] = 11] = "IndexedIndirect";
+        AddressingMode[AddressingMode["IndirectIndexed"] = 12] = "IndirectIndexed";
+    })(AddressingMode || (AddressingMode = {}));
+    const INSTRUCTION_SET = {
+        0xA5: { bytes: 2, addressingMode: AddressingMode.ZeroPage },
+        0xC9: { bytes: 2, addressingMode: AddressingMode.Immediate },
+        0xF6: { bytes: 2, addressingMode: AddressingMode.ZeroPageX },
+        // ... other opcodes ...
+    };
     class CPU {
         constructor(memory) {
             // Registers
@@ -41,30 +71,70 @@
             this.P = 0;
             // Set PC to the reset vector
             //this.PC = this.memory.read(0xFFFC) | (this.memory.read(0xFFFD) << 8);
-            this.PC = 0xC000;
+            // this is for nestest.nes
+            // most NES programs should start at 0x8000!
+            this.PC = 0x80C0;
         }
         step() {
-            const opcode = this.memory.read(this.PC++);
-            this.executeInstruction(opcode);
+            const instruction = this.fetchInstruction();
+            this.executeInstruction(instruction);
         }
-        executeInstruction(opcode) {
-            switch (opcode) {
-                case 0xA9: // LDA Immediate
-                    this.A = this.memory.read(this.PC++);
+        fetchInstruction() {
+            const opcode = this.memory.read(this.PC);
+            const info = INSTRUCTION_SET[opcode];
+            if (!info) {
+                throw new Error(`Unknown opcode: ${opcode.toString(16)} at PC: ${this.PC.toString(16)}`);
+            }
+            const operands = [];
+            for (let i = 0; i < info.bytes - 1; i++) {
+                operands.push(this.memory.read(this.PC + 1 + i));
+            }
+            return {
+                opcode,
+                operands,
+                addressingMode: info.addressingMode,
+                bytes: info.bytes
+            };
+        }
+        executeInstruction(instruction) {
+            // Implement each opcode here
+            switch (instruction.opcode) {
+                case 0xA5: // LDA Zero Page
+                    const zpAddress = instruction.operands[0];
+                    this.A = this.memory.read(zpAddress);
                     this.updateZeroAndNegativeFlags(this.A);
                     break;
-                case 0x8D: // STA Absolute
-                    const address = this.memory.read(this.PC++) | (this.memory.read(this.PC++) << 8);
-                    this.memory.write(address, this.A);
+                case 0xC9: // CMP Immediate
+                    instruction.operands[0];
+                    //this.compare(this.A, value);
                     break;
-                //Add more opcodes here...
-                // default:
-                //   console.log(`Unknown opcode: ${opcode.toString(16)}`);
+                case 0xF6: // INC Zero Page,X
+                    const address = (instruction.operands[0] + this.X) & 0xFF;
+                    let result = (this.memory.read(address) + 1) & 0xFF;
+                    this.memory.write(address, result);
+                    this.updateZeroAndNegativeFlags(result);
+                    break;
+                // ... other opcodes ...
             }
+            this.PC += instruction.bytes;
         }
+        // private updateZeroAndNegativeFlags(value: number): void {
+        //   this.setFlag(CPU.Z, value === 0);
+        //   this.setFlag(CPU.N, (value & 0x80) !== 0);
+        // }
         updateZeroAndNegativeFlags(value) {
-            this.setFlag(CPU.Z, value === 0);
-            this.setFlag(CPU.N, (value & 0x80) !== 0);
+            if (value === 0) {
+                this.P |= 0x02; // Set Zero flag
+            }
+            else {
+                this.P &= ~0x02; // Clear Zero flag
+            }
+            if (value & 0x80) {
+                this.P |= 0x80; // Set Negative flag
+            }
+            else {
+                this.P &= ~0x80; // Clear Negative flag
+            }
         }
         setFlag(flag, value) {
             if (value) {
@@ -200,12 +270,35 @@
         }
     }
 
+    // export async function loadROM(file: File): Promise<Uint8Array> {
+    //   return new Promise((resolve, reject) => {
+    //     const reader = new FileReader();
+    //     reader.onload = () => {
+    //       const arrayBuffer = reader.result as ArrayBuffer;
+    //       resolve(new Uint8Array(arrayBuffer));
+    //     };
+    //     reader.onerror = reject;
+    //     reader.readAsArrayBuffer(file);
+    //   });
+    // }
     async function loadROM(file) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = () => {
                 const arrayBuffer = reader.result;
-                resolve(new Uint8Array(arrayBuffer));
+                const fullROM = new Uint8Array(arrayBuffer);
+                // Check for NES header
+                if (fullROM[0] !== 0x4E || fullROM[1] !== 0x45 || fullROM[2] !== 0x53 || fullROM[3] !== 0x1A) {
+                    reject(new Error('Invalid NES ROM header'));
+                    return;
+                }
+                // Extract PRG-ROM and CHR-ROM sizes from header
+                const prgROMSize = fullROM[4] * 16384; // 16 KB units
+                const chrROMSize = fullROM[5] * 8192; // 8 KB units
+                // Extract PRG-ROM and CHR-ROM data
+                const prgROM = fullROM.slice(16, 16 + prgROMSize);
+                const chrROM = fullROM.slice(16 + prgROMSize, 16 + prgROMSize + chrROMSize);
+                resolve({ prgROM, chrROM });
             };
             reader.onerror = reject;
             reader.readAsArrayBuffer(file);
@@ -217,37 +310,7 @@
     const canvas = document.getElementById('nes-canvas');
     const cpu = new CPU(memory);
     const ppu = new PPU(memory, canvas);
-    let lastFrameTime = 0;
-    const FPS = 60;
-    const FRAME_DURATION = 1000 / FPS;
-    let isRunning = false;
-    let animationFrameId = null;
-    function runEmulator(timestamp) {
-        if (!isRunning)
-            return;
-        const deltaTime = timestamp - lastFrameTime;
-        if (deltaTime >= FRAME_DURATION) {
-            lastFrameTime = timestamp;
-            // Execute a fixed number of CPU instructions per frame
-            for (let i = 0; i < 29781; i++) {
-                cpu.step();
-            }
-            ppu.render();
-        }
-        animationFrameId = requestAnimationFrame(runEmulator);
-    }
-    function stopEmulator() {
-        isRunning = false;
-        if (animationFrameId !== null) {
-            cancelAnimationFrame(animationFrameId);
-            animationFrameId = null;
-        }
-    }
     function startEmulator() {
-        if (!isRunning) {
-            isRunning = true;
-            animationFrameId = requestAnimationFrame(runEmulator);
-        }
     }
     async function loadAndStartROM(file) {
         try {
@@ -272,7 +335,6 @@
             }
         });
         stopButton.addEventListener('click', () => {
-            stopEmulator();
         });
         reloadButton.addEventListener('click', () => {
             if (romInputElement.files && romInputElement.files.length > 0) {
