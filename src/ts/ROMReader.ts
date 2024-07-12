@@ -23,8 +23,8 @@ export async function loadROM(file: File): Promise<{prgROM: Uint8Array, chrROM: 
       }
 
       // Extract PRG-ROM and CHR-ROM sizes from header
-      const prgROMSize = fullROM[4] * 16384;  // 16 KB units
-      const chrROMSize = fullROM[5] * 8192;   // 8 KB units
+      const prgROMSize = fullROM[4] * 0x4000;  // 16 KB units
+      const chrROMSize = fullROM[5] * 0x2000;   // 8 KB units
 
       // Extract PRG-ROM and CHR-ROM data
       const prgROM = fullROM.slice(16, 16 + prgROMSize);

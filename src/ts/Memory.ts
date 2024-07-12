@@ -18,20 +18,9 @@ export class Memory {
     this.data[address] = value;
   }
 
-  loadROM(rom: { prgROM: Uint8Array, chrROM: Uint8Array }, startAddress: number =  0x8000, CPU: boolean = true): void {
-    if (CPU) {
-      // Load PRG-ROM into memory
-      this.data.set(rom.prgROM, startAddress);
-    }
-    // load character rom into memory
-    else {
-      this.data.set(rom.chrROM, startAddress);
-    }
+  loadROM(memory: Uint8Array, startAddress: number): void {
+    this.data.set(memory, startAddress);
   }
-
-  // loadROM(rom: Uint8Array, startAddress: number = 0x8000): void {
-  //   this.data.set(rom, startAddress);
-  // }
 
   // Add method to read 16-bit little-endian address
   read16(address: number): number {

@@ -3,8 +3,9 @@ import { CPU } from "./CPU";
 import { PPU } from "./PPU";
 import { loadROM } from "./ROMReader";
 
-export const memory = new Memory(0x10000);
-export const cpu = new CPU(memory);
+export const cpu_memory = new Memory(0x10000);
+export const cpu = new CPU(cpu_memory);
+export const ppu_memory = new Memory(0x3FFF);
 let ppu: PPU;
 let chromPPU: PPU;
 let lastFrameTime = 0;
@@ -46,14 +47,17 @@ function startEmulator() {
 async function loadAndStartROM(file: File) {
   try {
     const rom = await loadROM(file);
-    memory.loadROM(rom);
+    // load the prgrom into memory
+    cpu_memory.loadROM(rom.prgROM, 0x8000);
+    cpu_memory.loadROM(rom.prgROM, 0xC000);
+    ppu_memory.loadROM(rom.chrROM, 0x0000);
     const canvas = document.getElementById('nes-canvas') as HTMLCanvasElement;
-    ppu = new PPU(rom, canvas);
+    ppu = new PPU(ppu_memory, canvas);
     cpu.reset();
     // turn this back on to do full emulation
     // render chrROM
     const chrRomCanvas = document.getElementById('chrRomCanvas') as HTMLCanvasElement;
-    chromPPU = new PPU(rom, chrRomCanvas, 'chrrom');
+    chromPPU = new PPU(ppu_memory, chrRomCanvas, 'chrrom');
     chromPPU.renderCHRROM();
     startEmulator();
   } catch (error) {
@@ -88,7 +92,7 @@ if (romInputElement && stopButton && reloadButton) {
   console.error('Failed to find one or more required elements.');
 }
 
-(window as any).memory = memory;
+(window as any).memory = cpu_memory;
 (window as any).cpu = cpu;
 (window as any).ppu = ppu;
 (window as any).chromPPU =  chromPPU;

@@ -26,6 +26,7 @@ import { Memory } from "./Memory";
     0xA5: { bytes: 2, addressingMode: AddressingMode.ZeroPage },
     0xC9: { bytes: 2, addressingMode: AddressingMode.Immediate },
     0xF6: { bytes: 2, addressingMode: AddressingMode.ZeroPageX },
+    0x4C: { bytes: 3, addressingMode: AddressingMode.Absolute }
     // ... other opcodes ...
   };
 
@@ -62,10 +63,13 @@ export class CPU {
     this.S = 0xFF;
     this.P = 0;
     // Set PC to the reset vector
-    //this.PC = this.memory.read(0xFFFC) | (this.memory.read(0xFFFD) << 8);
+     // Read the reset vector from 0xFFFC and 0xFFFD
+    const lowByte = this.memory.read(0xFFFC);
+    const highByte = this.memory.read(0xFFFD);
+    this.PC = (highByte << 8) | lowByte;
     // this is for nestest.nes
     // most NES programs should start at 0x8000!
-    this.PC = 0x80C0;
+    this.PC = 0x8000;
   }
   
   step(): void {
@@ -80,7 +84,7 @@ export class CPU {
     if (!info) {
       throw new Error(`Unknown opcode: ${opcode.toString(16)} at PC: ${this.PC.toString(16)}`);
     }
-    
+
     const operands: number[] = [];
     for (let i = 0; i < info.bytes - 1; i++) {
       operands.push(this.memory.read(this.PC + 1 + i));
@@ -101,17 +105,24 @@ export class CPU {
         const zpAddress = instruction.operands[0];
         this.A = this.memory.read(zpAddress);
         this.updateZeroAndNegativeFlags(this.A);
-        break;
+	return;
       case 0xC9:  // CMP Immediate
         const value = instruction.operands[0];
         //this.compare(this.A, value);
-        break;
+	return;
       case 0xF6:  // INC Zero Page,X
         const address = (instruction.operands[0] + this.X) & 0xFF;
         let result = (this.memory.read(address) + 1) & 0xFF;
         this.memory.write(address, result);
         this.updateZeroAndNegativeFlags(result);
-        break;
+	return;
+      case 0x4C:  // JMP Absolute
+	const lowByte = instruction.operands[0];
+	const highByte = instruction.operands[1];
+	const jumpAddress = (highByte << 8) | lowByte;
+	console.log(`Jumping to address: ${jumpAddress.toString(16)}`);
+	this.PC = jumpAddress;
+	return;
       // ... other opcodes ...
     }
 

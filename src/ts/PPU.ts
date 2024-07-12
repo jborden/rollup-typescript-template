@@ -16,10 +16,9 @@ export class PPU {
     0xF8D878, 0xD8F878, 0xB8F8B8, 0xB8F8D8, 0x00FCFC, 0xF8D8F8, 0x000000, 0x000000
   ];
 
-  constructor(rom: { prgROM: Uint8Array, chrROM: Uint8Array }, canvas: HTMLCanvasElement, mode: 'game' | 'chrrom' = 'game') {
+  constructor(memory: Memory, canvas: HTMLCanvasElement, mode: 'game' | 'chrrom' = 'game') {
     this.canvas = canvas;
-    this.memory = new Memory(0x10000);
-    this.memory.loadROM(rom, 0x0000, false);
+    this.memory = memory;
     this.context = this.initContext();
     if (mode === 'chrrom') {
       this.canvas.width = 128;  // 16 tiles * 8 pixels
@@ -143,6 +142,7 @@ export class PPU {
     
     this.context.putImageData(this.imageData, 0, 0);
   }
+  
   private setPixel(x: number, y: number, color: number): void {
     const index = (y * 256 + x) * 4;
     this.imageData.data[index] = (color >> 16) & 0xFF;     // Red
