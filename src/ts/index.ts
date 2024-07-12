@@ -1,7 +1,7 @@
 import { Memory } from "./Memory";
 import { CPU } from "./CPU";
 import { PPU } from "./PPU";
-import { loadROM } from "./ROMReader";
+import { loadROM, loadStoredROM } from "./ROMReader";
 
 export const cpu_memory = new Memory(0x10000);
 export const cpu = new CPU(cpu_memory);
@@ -92,6 +92,34 @@ if (romInputElement && stopButton && reloadButton) {
   console.error('Failed to find one or more required elements.');
 }
 
+export async function loadAndStartROMAutomatically() {
+  let romData = loadStoredROM();
+
+  if (!romData) {
+    console.log("there is no data, please load a ROM first")
+  }
+
+  // Proceed with starting the emulator using romData
+  if (romData) {
+    console.log("Loading Previously Used ROM");
+    cpu_memory.loadROM(romData.prgROM, 0x8000);
+    cpu_memory.loadROM(romData.prgROM, 0xC000);
+    ppu_memory.loadROM(romData.chrROM, 0x0000);
+
+    const canvas = document.getElementById('nes-canvas') as HTMLCanvasElement;
+    ppu = new PPU(ppu_memory, canvas);
+    cpu.reset();
+
+    // Optional: Render CHR-ROM
+    const chrRomCanvas = document.getElementById('chrRomCanvas') as HTMLCanvasElement;
+    chromPPU = new PPU(ppu_memory, chrRomCanvas, 'chrrom');
+    chromPPU.renderCHRROM();
+
+    startEmulator();
+  }
+}
+
+loadAndStartROMAutomatically();
 (window as any).memory = cpu_memory;
 (window as any).cpu = cpu;
 (window as any).ppu = ppu;

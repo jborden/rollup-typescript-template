@@ -63,13 +63,13 @@ export class CPU {
     this.S = 0xFF;
     this.P = 0;
     // Set PC to the reset vector
-     // Read the reset vector from 0xFFFC and 0xFFFD
+    // Read the reset vector from 0xFFFC and 0xFFFD
     const lowByte = this.memory.read(0xFFFC);
     const highByte = this.memory.read(0xFFFD);
     this.PC = (highByte << 8) | lowByte;
     // this is for nestest.nes
     // most NES programs should start at 0x8000!
-    this.PC = 0x8000;
+    //this.PC = 0x8000;
   }
   
   step(): void {

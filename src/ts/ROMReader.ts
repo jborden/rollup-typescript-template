@@ -29,10 +29,25 @@ export async function loadROM(file: File): Promise<{prgROM: Uint8Array, chrROM: 
       // Extract PRG-ROM and CHR-ROM data
       const prgROM = fullROM.slice(16, 16 + prgROMSize);
       const chrROM = fullROM.slice(16 + prgROMSize, 16 + prgROMSize + chrROMSize);
-
+      localStorage.setItem('nesPrgROM', JSON.stringify(Array.from(prgROM)));
+      localStorage.setItem('nesChrROM', JSON.stringify(Array.from(chrROM)));
       resolve({prgROM, chrROM});
     };
     reader.onerror = reject;
     reader.readAsArrayBuffer(file);
   });
+}
+
+export function loadStoredROM(): { prgROM: Uint8Array, chrROM: Uint8Array } | null {
+  const prgROMString = localStorage.getItem('nesPrgROM');
+  const chrROMString = localStorage.getItem('nesChrROM');
+
+  if (!prgROMString || !chrROMString) {
+    return null;
+  }
+
+  const prgROM = new Uint8Array(JSON.parse(prgROMString));
+  const chrROM = new Uint8Array(JSON.parse(chrROMString));
+
+  return { prgROM, chrROM };
 }
