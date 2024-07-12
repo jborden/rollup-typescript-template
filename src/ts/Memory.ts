@@ -19,7 +19,12 @@ export class Memory {
   }
 
   loadROM(memory: Uint8Array, startAddress: number): void {
-    this.data.set(memory, startAddress);
+    try {
+          this.data.set(memory, startAddress);
+    } catch (error) {
+      console.error('Memory failed to load ROM at startAddress ' + startAddress )
+    }
+
   }
 
   // Add method to read 16-bit little-endian address
