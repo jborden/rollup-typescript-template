@@ -22,7 +22,7 @@ export class Memory {
     try {
           this.data.set(memory, startAddress);
     } catch (error) {
-      console.error('Memory failed to load ROM at startAddress ' + startAddress )
+      console.error('Memory failed to load ROM at startAddress ' + '0x' + startAddress.toString(16).padStart(2, '0').toUpperCase() )
     }
 
   }
