@@ -23,6 +23,8 @@ function runEmulator(timestamp: number) {
     // Execute a fixed number of CPU instructions per frame
     for (let i = 0; i < 29781; i++) {
       cpu.step();
+      cpu.updateUI(); // Update UI after each CPU step
+
     }
     ppu.render();
   }

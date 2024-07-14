@@ -44,27 +44,46 @@ export class CPU {
   private X: number = 0;   // 8-bit index register
   private Y: number = 0;   // 8-bit index register
   private PC: number = 0;  // 16-bit program counter
-  private S: number = 0xFF; // 8-bit stack pointer
+  private SP: number = 0xFF; // 8-bit stack pointer
   private P: number = 0;   // 7-bit status register
 
   // Status flag positions
-  private C = 0; // Carry
-  private Z = 1; // Zero
-  private I = 2; // Interrupt disable
-  private D = 3; // Decimal
-  private B = 4; // Break (only in stack values)
-  private V = 6; // Overflow
-  private N = 7; // Negative
+  private static C = 0; // Carry
+  private static Z = 1; // Zero
+  private static I = 2; // Interrupt disable
+  private static D = 3; // Decimal
+  private static B = 4; // Break (only in stack values)
+  private static V = 6; // Overflow
+  private static N = 7; // Negative
 
   constructor(memory: Memory) {
     this.memory = memory;
   }
 
+  public updateUI(): void {
+    document.getElementById('register-a')!.textContent = this.A.toString(16).padStart(2, '0').toUpperCase();
+    document.getElementById('register-x')!.textContent = this.X.toString(16).padStart(2, '0').toUpperCase();
+    document.getElementById('register-y')!.textContent = this.Y.toString(16).padStart(2, '0').toUpperCase();
+    document.getElementById('register-pc')!.textContent = this.PC.toString(16).padStart(4, '0').toUpperCase();
+    document.getElementById('register-sp')!.textContent = this.SP.toString(16).padStart(2, '0').toUpperCase();
+    document.getElementById('register-p')!.textContent = this.P.toString(16).padStart(2, '0').toUpperCase();
+
+
+    document.getElementById('flag-c')!.textContent = ((this.P >> CPU.C) & 1).toString();
+    document.getElementById('flag-z')!.textContent = ((this.P >> CPU.Z) & 1).toString();
+    document.getElementById('flag-i')!.textContent = ((this.P >> CPU.I) & 1).toString();
+    document.getElementById('flag-d')!.textContent = ((this.P >> CPU.D) & 1).toString();
+    document.getElementById('flag-b')!.textContent = ((this.P >> CPU.B) & 1).toString();
+    document.getElementById('flag-v')!.textContent = ((this.P >> CPU.V) & 1).toString();
+    document.getElementById('flag-n')!.textContent = ((this.P >> CPU.N) & 1).toString();
+
+  }
+  
   reset(): void {
     this.A = 0;
     this.X = 0;
     this.Y = 0;
-    this.S = 0xFF;
+    this.SP = 0xFF;
     this.P = 0;
     // Set PC to the reset vector
     // Read the reset vector from 0xFFFC and 0xFFFD
@@ -98,7 +117,8 @@ export class CPU {
       opcode,
       operands,
       addressingMode: info.addressingMode,
-      bytes: info.bytes
+      bytes: info.bytes,
+      cycles: info.cycles
     };
   }
   
@@ -131,10 +151,10 @@ export class CPU {
 	this.PC = jumpAddress;
 	break;
       case 0x78: // Set Interrupt Disable Status
-	this.I = 1;
+	this.setFlag(CPU.I); // Set interrupt disable flag (I)
 	break;
       case 0xD8: // Clear Decimal Mode
-	this.D = 0;
+	this.clearFlag(CPU.D);
 	break;
       case 0xA2: // LDX - load X with memory ldx #oper
         immediateValue = instruction.operands[0];
@@ -142,7 +162,7 @@ export class CPU {
         this.updateZeroAndNegativeFlags(this.X);
         break;
       case 0x9A: // TSX - Transfer Index X to Stack Register
-	this.S = this.X;
+	this.SP = this.X;
 	break;
       case 0xAD: // LDA oper - Load Accumulator with Memory
 	lowByte = instruction.operands[0];
@@ -156,28 +176,21 @@ export class CPU {
 
     this.PC += instruction.bytes;
   }
-  // private updateZeroAndNegativeFlags(value: number): void {
-  //   this.setFlag(CPU.Z, value === 0);
-  //   this.setFlag(CPU.N, (value & 0x80) !== 0);
-  // }
 
-  private updateZeroAndNegativeFlags(value: number): void {
-    // Update Zero flag
-    if (value === 0) {
-      this.P |= (1 << this.Z);
-    } else {
-      this.P &= ~(1 << this.Z);
-    }
+  private setFlag(flag: number): void {
+    this.P |= (1 << flag); // Set flag position to 1
+  }
 
-    // Update Negative flag
-    if (value & 0x80) {
-      this.P |= (1 << this.N);
-    } else {
-      this.P &= ~(1 << this.N);
-    }
+  private clearFlag(flag: number): void {
+    this.P &= ~(1 << flag); // Clear flag position to 0
   }
   
+  private updateZeroAndNegativeFlags(value: number): void {
+    this.setFlag(CPU.Z, value === 0);
+    this.setFlag(CPU.N, (value & 0x80) !== 0);
+  }
 
+ 
   private setFlag(flag: number, value: boolean): void {
     if (value) {
       this.P |= (1 << flag);
@@ -208,7 +221,7 @@ export class CPU {
   }
 
   getStackPointer(): string {
-    return '0x' + this.padZero(this.S.toString(16), 2).toUpperCase();
+    return '0x' + this.padZero(this.SP.toString(16), 2).toUpperCase();
   }
 
   getStatus(): string {

@@ -7,6 +7,10 @@
     canvas {
       border: 1px solid black;
     }
+    .registers, .flags {
+            font-family: monospace;
+            margin-bottom: 1em;
+    }
   </style>
 </head>
 <body>
@@ -16,5 +20,22 @@
   <button id="stop-button">Stop Emulator</button>
   <button id="reload-button">Reload ROM</button>
   <canvas id="chrRomCanvas"></canvas>
+  <div class="registers">
+    <div>A: <span id="register-a">00</span></div>
+    <div>X: <span id="register-x">00</span></div>
+    <div>Y: <span id="register-y">00</span></div>
+    <div>PC: <span id="register-pc">0000</span></div>
+    <div>SP: <span id="register-sp">0000</span></div>
+  </div>
+  <div class="flags">
+    <div>P: <span id="register-p">0000</span></div>
+    <div>C: <span id="flag-c">0</span></div>
+    <div>Z: <span id="flag-z">0</span></div>
+    <div>I: <span id="flag-i">0</span></div>
+    <div>D: <span id="flag-d">0</span></div>
+    <div>B: <span id="flag-b">0</span></div>
+    <div>V: <span id="flag-v">0</span></div>
+    <div>N: <span id="flag-n">0</span></div>
+  </div>
 </body>
 </html>
