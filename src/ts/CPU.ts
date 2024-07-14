@@ -1,9 +1,10 @@
 import { Memory } from "./Memory";
  interface Instruction {
-	opcode: number;
-	operands: number[];
-	addressingMode: AddressingMode;
-	bytes: number;
+   opcode: number;
+   operands: number[];
+   addressingMode: AddressingMode;
+   bytes: number;
+   cycles: number;
   }
 
   enum AddressingMode {
@@ -22,12 +23,17 @@ import { Memory } from "./Memory";
 	IndirectIndexed
   }
 
-  const INSTRUCTION_SET: { [opcode: number]: { bytes: number, addressingMode: AddressingMode } } = {
-    0xA5: { bytes: 2, addressingMode: AddressingMode.ZeroPage },
-    0xC9: { bytes: 2, addressingMode: AddressingMode.Immediate },
-    0xF6: { bytes: 2, addressingMode: AddressingMode.ZeroPageX },
-    0x4C: { bytes: 3, addressingMode: AddressingMode.Absolute }
-    // ... other opcodes ...
+const INSTRUCTION_SET: { [opcode: number]: { bytes: number, addressingMode: AddressingMode, cycles: number } } = {
+  0xA5: { bytes: 2, addressingMode: AddressingMode.ZeroPage, cycles: 3 },
+  0xC9: { bytes: 2, addressingMode: AddressingMode.Immediate, cycles: 2 },
+  0xF6: { bytes: 2, addressingMode: AddressingMode.ZeroPageX, cycles: 6 },
+  0x4C: { bytes: 3, addressingMode: AddressingMode.Absolute, cycles: 3 },
+  0x78: { bytes: 1, addressingMode: AddressingMode.Implied, cycles: 2 },
+  0xD8: { bytes: 1, addressingMode: AddressingMode.Implied, cycles: 2 },
+  0xA2: { bytes: 2, addressingMode: AddressingMode.Immediate, cycles: 2 },
+  0x9A: { bytes: 1, addressingMode: AddressingMode.Implied, cycles: 2 },
+  0xAD: { bytes: 3, addressingMode: AddressingMode.Absolute, cycles: 4}
+  // ... other opcodes ...
   };
 
 
@@ -42,16 +48,14 @@ export class CPU {
   private P: number = 0;   // 7-bit status register
 
   // Status flag positions
-  private static C = 0; // Carry
-  private static Z = 1; // Zero
-  private static I = 2; // Interrupt disable
-  private static D = 3; // Decimal
-  private static B = 4; // Break (only in stack values)
-  private static V = 6; // Overflow
-  private static N = 7; // Negative
+  private C = 0; // Carry
+  private Z = 1; // Zero
+  private I = 2; // Interrupt disable
+  private D = 3; // Decimal
+  private B = 4; // Break (only in stack values)
+  private V = 6; // Overflow
+  private N = 7; // Negative
 
- 
-  
   constructor(memory: Memory) {
     this.memory = memory;
   }
@@ -100,29 +104,53 @@ export class CPU {
   
   private executeInstruction(instruction: Instruction): void {
     // Implement each opcode here
+    let lowByte: number;
+    let highByte: number;
+    let address: number;
+    let result: number;
+    let immediateValue: number;
+    let jumpAddress: number;
+    let zpAddress: number;
     switch (instruction.opcode) {
       case 0xA5:  // LDA Zero Page
-        const zpAddress = instruction.operands[0];
+        zpAddress = instruction.operands[0];
         this.A = this.memory.read(zpAddress);
         this.updateZeroAndNegativeFlags(this.A);
-	return;
-      case 0xC9:  // CMP Immediate
-        const value = instruction.operands[0];
-        //this.compare(this.A, value);
-	return;
+	break;
       case 0xF6:  // INC Zero Page,X
-        const address = (instruction.operands[0] + this.X) & 0xFF;
-        let result = (this.memory.read(address) + 1) & 0xFF;
+        address = (instruction.operands[0] + this.X) & 0xFF;
+        result = (this.memory.read(address) + 1) & 0xFF;
         this.memory.write(address, result);
         this.updateZeroAndNegativeFlags(result);
-	return;
+	break;
       case 0x4C:  // JMP Absolute
-	const lowByte = instruction.operands[0];
-	const highByte = instruction.operands[1];
-	const jumpAddress = (highByte << 8) | lowByte;
+	lowByte = instruction.operands[0];
+	highByte = instruction.operands[1];
+	jumpAddress = (highByte << 8) | lowByte;
 	console.log(`Jumping to address: ${jumpAddress.toString(16)}`);
 	this.PC = jumpAddress;
-	return;
+	break;
+      case 0x78: // Set Interrupt Disable Status
+	this.I = 1;
+	break;
+      case 0xD8: // Clear Decimal Mode
+	this.D = 0;
+	break;
+      case 0xA2: // LDX - load X with memory ldx #oper
+        immediateValue = instruction.operands[0];
+        this.X = immediateValue;
+        this.updateZeroAndNegativeFlags(this.X);
+        break;
+      case 0x9A: // TSX - Transfer Index X to Stack Register
+	this.S = this.X;
+	break;
+      case 0xAD: // LDA oper - Load Accumulator with Memory
+	lowByte = instruction.operands[0];
+	highByte = instruction.operands[1];
+	address = (highByte << 8) | lowByte;
+	this.A = this.memory.read(address);
+	this.updateZeroAndNegativeFlags(this.A);
+	break;
       // ... other opcodes ...
     }
 
@@ -132,18 +160,23 @@ export class CPU {
   //   this.setFlag(CPU.Z, value === 0);
   //   this.setFlag(CPU.N, (value & 0x80) !== 0);
   // }
+
   private updateZeroAndNegativeFlags(value: number): void {
+    // Update Zero flag
     if (value === 0) {
-      this.P |= 0x02; // Set Zero flag
+      this.P |= (1 << this.Z);
     } else {
-      this.P &= ~0x02; // Clear Zero flag
+      this.P &= ~(1 << this.Z);
     }
+
+    // Update Negative flag
     if (value & 0x80) {
-      this.P |= 0x80; // Set Negative flag
+      this.P |= (1 << this.N);
     } else {
-      this.P &= ~0x80; // Clear Negative flag
+      this.P &= ~(1 << this.N);
     }
   }
+  
 
   private setFlag(flag: number, value: boolean): void {
     if (value) {
