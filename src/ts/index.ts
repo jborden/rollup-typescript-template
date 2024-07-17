@@ -70,6 +70,11 @@ function stopEmulator() {
 }
 
 function startEmulator() {
+  cpu.reset();
+  cpu.updateUI();
+  const chrRomCanvas = document.getElementById('chrRomCanvas') as HTMLCanvasElement;
+  chromPPU = new PPU(ppu_memory, chrRomCanvas, 'chrrom');
+  chromPPU.renderCHRROM();
   if (!isRunning) {
     isRunning = true;
     if (!isDebugMode) {
@@ -87,12 +92,8 @@ async function loadAndStartROM(file: File) {
     ppu_memory.loadROM(rom.chrROM, 0x0000);
     const canvas = document.getElementById('nes-canvas') as HTMLCanvasElement;
     ppu = new PPU(ppu_memory, canvas);
-    cpu.reset();
     // turn this back on to do full emulation
     // render chrROM
-    const chrRomCanvas = document.getElementById('chrRomCanvas') as HTMLCanvasElement;
-    chromPPU = new PPU(ppu_memory, chrRomCanvas, 'chrrom');
-    chromPPU.renderCHRROM();
     startEmulator();
   } catch (error) {
     console.error('Failed to load ROM:', error);

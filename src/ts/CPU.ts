@@ -81,10 +81,10 @@ export class CPU {
   
   reset(): void {
     this.A = 0;
-    this.X = 0;
+    this.X = 0xFF; // mesen initial values
     this.Y = 0;
-    this.SP = 0xFF;
-    this.P = 0;
+    this.SP = 0xFC; // mesen initial values
+    this.P = 0x06; // mesen initial values
     // Set PC to the reset vector
     // Read the reset vector from 0xFFFC and 0xFFFD
     const lowByte = this.memory.read(0xFFFC);
@@ -150,8 +150,8 @@ export class CPU {
 	console.log(`Jumping to address: ${jumpAddress.toString(16)}`);
 	this.PC = jumpAddress;
 	break;
-      case 0x78: // Set Interrupt Disable Status
-	this.setFlag(CPU.I); // Set interrupt disable flag (I)
+      case 0x78: // SEI:  Set Interrupt Disable Status
+	this.setFlag(CPU.I,true); // Set interrupt disable flag (I)
 	break;
       case 0xD8: // Clear Decimal Mode
 	this.clearFlag(CPU.D);
@@ -175,10 +175,6 @@ export class CPU {
     }
 
     this.PC += instruction.bytes;
-  }
-
-  private setFlag(flag: number): void {
-    this.P |= (1 << flag); // Set flag position to 1
   }
 
   private clearFlag(flag: number): void {
