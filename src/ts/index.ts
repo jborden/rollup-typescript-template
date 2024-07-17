@@ -12,7 +12,26 @@ let lastFrameTime = 0;
 const FPS = 60;
 const FRAME_DURATION = 1000 / FPS;
 let isRunning = false;
+let isDebugMode = getCookie('debugMode') === 'true';
 let animationFrameId: number | null = null;
+
+function setCookie(name: string, value: string, days: number) {
+  const date = new Date();
+  date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+  const expires = "expires=" + date.toUTCString();
+  document.cookie = name + "=" + value + ";" + expires + ";path=/";
+}
+
+function getCookie(name: string) {
+  const nameEQ = name + "=";
+  const ca = document.cookie.split(';');
+  for (let i = 0; i < ca.length; i++) {
+    let c = ca[i];
+    while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+    if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+  }
+  return null;
+}
 
 function runEmulator(timestamp: number) {
   if (!isRunning) return;
@@ -21,14 +40,25 @@ function runEmulator(timestamp: number) {
   if (deltaTime >= FRAME_DURATION) {
     lastFrameTime = timestamp;
     // Execute a fixed number of CPU instructions per frame
-    for (let i = 0; i < 29781; i++) {
-      cpu.step();
-      cpu.updateUI(); // Update UI after each CPU step
-
+    if (!isDebugMode) {
+      for (let i = 0; i < 29781; i++) {
+        cpu.step();
+        cpu.updateUI(); // Update UI after each CPU step
+      }
+      ppu.render();
     }
+  }
+  if (!isDebugMode) {
+    animationFrameId = requestAnimationFrame(runEmulator);
+  }
+}
+
+function stepEmulator() {
+  if (isDebugMode) {
+    cpu.step();
+    cpu.updateUI(); // Update UI after each CPU step
     ppu.render();
   }
-  animationFrameId = requestAnimationFrame(runEmulator);
 }
 
 function stopEmulator() {
@@ -42,7 +72,9 @@ function stopEmulator() {
 function startEmulator() {
   if (!isRunning) {
     isRunning = true;
-    animationFrameId = requestAnimationFrame(runEmulator);
+    if (!isDebugMode) {
+      animationFrameId = requestAnimationFrame(runEmulator);
+    }
   }
 }
 
@@ -70,8 +102,10 @@ async function loadAndStartROM(file: File) {
 const romInputElement = document.getElementById('rom-input') as HTMLInputElement;
 const stopButton = document.getElementById('stop-button') as HTMLButtonElement;
 const reloadButton = document.getElementById('reload-button') as HTMLButtonElement;
+const debugModeCheckbox = document.getElementById('debug-mode-checkbox') as HTMLInputElement;
+const stepButton = document.getElementById('step-button') as HTMLButtonElement;
 
-if (romInputElement && stopButton && reloadButton) {
+if (romInputElement && stopButton && reloadButton && debugModeCheckbox && stepButton) {
   romInputElement.addEventListener('change', (event) => {
     const fileInput = event.target as HTMLInputElement;
     if (fileInput.files && fileInput.files.length > 0) {
@@ -90,6 +124,26 @@ if (romInputElement && stopButton && reloadButton) {
       console.error('No ROM file selected');
     }
   });
+
+  debugModeCheckbox.addEventListener('change', (event) => {
+    isDebugMode = (event.target as HTMLInputElement).checked;
+    setCookie('debugMode', isDebugMode.toString(), 30);
+    if (isDebugMode) {
+      stopEmulator();
+      stepButton.disabled = false;
+    } else {
+      startEmulator();
+      stepButton.disabled = true;
+    }
+  });
+
+  stepButton.addEventListener('click', () => {
+    stepEmulator();
+  });
+
+  // Initialize debug mode based on cookie value
+  debugModeCheckbox.checked = isDebugMode;
+  stepButton.disabled = !isDebugMode;
 } else {
   console.error('Failed to find one or more required elements.');
 }
@@ -125,4 +179,4 @@ loadAndStartROMAutomatically();
 (window as any).memory = cpu_memory;
 (window as any).cpu = cpu;
 (window as any).ppu = ppu;
-(window as any).chromPPU =  chromPPU;
+(window as any).chromPPU = chromPPU;

@@ -19,6 +19,11 @@
   <script type="module" src="js/bundle.js"></script>
   <button id="stop-button">Stop Emulator</button>
   <button id="reload-button">Reload ROM</button>
+  <div id="debug-controls">
+    <label for="debug-mode-checkbox">Debug Mode</label>
+    <input type="checkbox" id="debug-mode-checkbox">
+    <button id="step-button" disabled>Step</button>
+  </div>
   <canvas id="chrRomCanvas"></canvas>
   <div class="registers">
     <div>A: <span id="register-a">00</span></div>
