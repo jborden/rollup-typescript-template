@@ -32,7 +32,8 @@ const INSTRUCTION_SET: { [opcode: number]: { bytes: number, addressingMode: Addr
   0xD8: { bytes: 1, addressingMode: AddressingMode.Implied, cycles: 2 },
   0xA2: { bytes: 2, addressingMode: AddressingMode.Immediate, cycles: 2 },
   0x9A: { bytes: 1, addressingMode: AddressingMode.Implied, cycles: 2 },
-  0xAD: { bytes: 3, addressingMode: AddressingMode.Absolute, cycles: 4}
+  0xAD: { bytes: 3, addressingMode: AddressingMode.Absolute, cycles: 4},
+  0x10: { bytes: 2, addressingMode: AddressingMode.Relative, cycles: 2}
   // ... other opcodes ...
   };
 
@@ -56,6 +57,9 @@ export class CPU {
   private static V = 6; // Overflow
   private static N = 7; // Negative
 
+  // Internal config
+  private cycleCount: number = 7;
+
   constructor(memory: Memory) {
     this.memory = memory;
   }
@@ -66,9 +70,8 @@ export class CPU {
     document.getElementById('register-y')!.textContent = this.Y.toString(16).padStart(2, '0').toUpperCase();
     document.getElementById('register-pc')!.textContent = this.PC.toString(16).padStart(4, '0').toUpperCase();
     document.getElementById('register-sp')!.textContent = this.SP.toString(16).padStart(2, '0').toUpperCase();
+    document.getElementById('cycles')!.textContent = this.cycleCount.toString();
     document.getElementById('register-p')!.textContent = this.P.toString(16).padStart(2, '0').toUpperCase();
-
-
     document.getElementById('flag-c')!.textContent = ((this.P >> CPU.C) & 1).toString();
     document.getElementById('flag-z')!.textContent = ((this.P >> CPU.Z) & 1).toString();
     document.getElementById('flag-i')!.textContent = ((this.P >> CPU.I) & 1).toString();
@@ -136,12 +139,14 @@ export class CPU {
         zpAddress = instruction.operands[0];
         this.A = this.memory.read(zpAddress);
         this.updateZeroAndNegativeFlags(this.A);
+	this.cycleCount += instruction.cycles;
 	break;
       case 0xF6:  // INC Zero Page,X
         address = (instruction.operands[0] + this.X) & 0xFF;
         result = (this.memory.read(address) + 1) & 0xFF;
         this.memory.write(address, result);
         this.updateZeroAndNegativeFlags(result);
+	this.cycleCount += instruction.cycles;
 	break;
       case 0x4C:  // JMP Absolute
 	lowByte = instruction.operands[0];
@@ -149,20 +154,25 @@ export class CPU {
 	jumpAddress = (highByte << 8) | lowByte;
 	console.log(`Jumping to address: ${jumpAddress.toString(16)}`);
 	this.PC = jumpAddress;
+	this.cycleCount += instruction.cycles;
 	break;
       case 0x78: // SEI:  Set Interrupt Disable Status
 	this.setFlag(CPU.I,true); // Set interrupt disable flag (I)
+	this.cycleCount += instruction.cycles;
 	break;
       case 0xD8: // Clear Decimal Mode
 	this.clearFlag(CPU.D);
+	this.cycleCount += instruction.cycles;
 	break;
       case 0xA2: // LDX - load X with memory ldx #oper
         immediateValue = instruction.operands[0];
         this.X = immediateValue;
         this.updateZeroAndNegativeFlags(this.X);
+	this.cycleCount += instruction.cycles;
         break;
       case 0x9A: // TSX - Transfer Index X to Stack Register
 	this.SP = this.X;
+	this.cycleCount += instruction.cycles;
 	break;
       case 0xAD: // LDA oper - Load Accumulator with Memory
 	lowByte = instruction.operands[0];
@@ -170,8 +180,25 @@ export class CPU {
 	address = (highByte << 8) | lowByte;
 	this.A = this.memory.read(address);
 	this.updateZeroAndNegativeFlags(this.A);
+	this.cycleCount += instruction.cycles;
 	break;
-      // ... other opcodes ...
+      case 0x10: // BPL: Branch if Positive
+        const offset = instruction.operands[0];
+        if (!this.getFlag(CPU.N)) { // Check if the negative flag is clear
+          // Offset is a signed 8-bit value
+          const signedOffset = (offset < 0x80) ? offset : offset - 0x100;
+          const oldPC = this.PC;
+          const newPC = this.PC + signedOffset;
+          this.PC = newPC;
+	  this.cycleCount += instruction.cycles;
+          this.cycleCount += 1; // Always add one cycle for taking the branch
+	  
+          // Check if we crossed a page boundary
+          if ((oldPC & 0xFF00) !== (newPC & 0xFF00)) {
+            this.cycleCount += 1; // Add another cycle for page crossing
+          }
+        }
+        break;
     }
 
     this.PC += instruction.bytes;
