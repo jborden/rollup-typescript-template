@@ -1,4 +1,4 @@
-import { Memory } from './Memory'
+import { Memory } from './Memory';
 
 export class PPU {
   private memory: Memory;

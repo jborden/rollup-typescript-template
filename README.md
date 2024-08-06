@@ -35,8 +35,13 @@ https://www.masswerk.at/6502/6502_instruction_set.html
 ROM explorer
 https://nesplorer.vercel.app/
 
+PPU discusses loops and inter
+https://www.nesdev.org/wiki/PPU_power_up_state
+
+
 # Notes
 Read the first instruction in nestest.nes
 ```
 memory.readHex(0x8000)
 ```
+

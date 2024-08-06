@@ -5,7 +5,7 @@ import serve from 'rollup-plugin-serve';
 
 
 export default {
-  input: 'src/ts/index.ts',
+  input: 'src/ts/System.ts',
   output: {
     file: 'resources/public/js/bundle.js',
     format: 'iife'
