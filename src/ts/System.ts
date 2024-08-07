@@ -33,7 +33,7 @@ function getCookie(name: string) {
   }
   return null;
 }
-
+// we are currently good to cycle 26
 function runEmulator(timestamp: number) {
   if (!isRunning) return;
 
@@ -43,6 +43,9 @@ function runEmulator(timestamp: number) {
     // Execute a fixed number of CPU instructions per frame
     if (!isDebugMode) {
       for (let i = 0; i < 29781; i++) {
+	if (SystemState.cycles == 18432) {
+	  return;
+	}
 	// this is rather hacky way to set the PPU_Status_2002 bit
 	if (SystemState.cycles == 27400 ) {
 	  cpu_memory.write(0x2002, 0x80);
@@ -57,22 +60,26 @@ function runEmulator(timestamp: number) {
       ppu.render();
     }
   }
-  // console.log("cycles: ", SystemState.cycles)
-  // // this is a manual stop for a certain amount of cycles
-  // if (SystemState.cycles > 27392) {
-  //   console.log("memory is: ", cpu_memory.read(0x2002));
-  //   return;
-  // }
+
   if (!isDebugMode) {
     animationFrameId = requestAnimationFrame(runEmulator);
   }
 }
 
-function stepEmulator() {
+function stepEmulator(cycles: number | undefined) {
   if (isDebugMode) {
-    cpu.step();
-    cpu.updateUI(); // Update UI after each CPU step
-    ppu.render();
+    if (cycles === undefined || isNaN(cycles) || cycles <= 0) {
+      cpu.step();
+      cpu.updateUI(); // Update UI after each CPU step
+      ppu.render();
+    } else {
+      let initialCycles = SystemState.cycles;
+      while (SystemState.cycles - initialCycles < cycles) {
+        cpu.step();
+        cpu.updateUI(); // Update UI after each CPU step
+        ppu.render();
+      }
+    }
   }
 }
 
@@ -120,6 +127,8 @@ const stopButton = document.getElementById('stop-button') as HTMLButtonElement;
 const reloadButton = document.getElementById('reload-button') as HTMLButtonElement;
 const debugModeCheckbox = document.getElementById('debug-mode-checkbox') as HTMLInputElement;
 const stepButton = document.getElementById('step-button') as HTMLButtonElement;
+const cyclesInput = document.getElementById('cycles-input') as HTMLInputElement;
+const errorMessage = document.getElementById('error-message') as HTMLDivElement;
 
 if (romInputElement && stopButton && reloadButton && debugModeCheckbox && stepButton) {
   romInputElement.addEventListener('change', (event) => {
@@ -154,7 +163,13 @@ if (romInputElement && stopButton && reloadButton && debugModeCheckbox && stepBu
   });
 
   stepButton.addEventListener('click', () => {
-    stepEmulator();
+    const cycles = parseInt(cyclesInput.value, 10);
+    if (cyclesInput.value !== '' && (isNaN(cycles) || cycles <= 0)) {
+      errorMessage.textContent = 'Please enter a valid number of cycles.';
+    } else {
+      errorMessage.textContent = '';
+      stepEmulator(cycles);
+    }
   });
 
   // Initialize debug mode based on cookie value

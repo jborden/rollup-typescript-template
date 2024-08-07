@@ -66,9 +66,9 @@ export class CPU {
   reset(): void {
     this.A = 0;
     this.X = 0xFF; // mesen initial values
-    this.Y = 0;
+    this.Y = 0x03; // mesen intial values
     this.SP = 0xFC; // mesen initial values
-    this.P = 0x06; // mesen initial values
+    this.P = 0x07; // mesen initial values
     // Set PC to the reset vector
     // Read the reset vector from 0xFFFC and 0xFFFD
     const lowByte = this.memory.read(0xFFFC);
